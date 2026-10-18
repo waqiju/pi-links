@@ -20,10 +20,18 @@ Run `/reload` in an existing Pi session. Requires Node.js 22+ and Pi with the `@
 | `/links report` | Filter titles and destinations by a case-insensitive substring |
 | `/links --last` | Links from the latest assistant message containing visible text |
 | `/links --last html` | Filter that latest message |
+| `/links --paths` | Also infer existing file and directory paths from inline code |
+| `/links --last --paths src` | Infer paths in the latest message and filter by `src` |
 
-Select with arrow keys and Enter; Escape cancels without opening anything. Items show both the Markdown title and destination. Duplicate resolved destinations keep their newest title. Explicit Markdown links to missing files stay visible and report an error when selected. Paths inferred from inline code are listed only when the file or directory exists, so slash commands such as `/links`, `/links report`, and `/reload` are not mistaken for files.
+Flags precede the filter; `--last` and `--paths` can appear in either order. Use `--` to end flag parsing, for example `/links -- --paths` searches for the literal text `--paths`.
 
-Supports inline and reference-style Markdown links, images, web autolinks, bare HTTP(S) URLs, and paths in inline code. Examples:
+Select with arrow keys and Enter; Escape cancels without opening anything. Items show both the Markdown title and destination. Duplicate resolved destinations keep their newest title. Explicit Markdown links and inline `file://` URLs to missing files stay visible and report an error when selected.
+
+By default, only inline and reference-style Markdown links, images, web autolinks, bare HTTP(S) URLs, and explicit HTTP(S) / `file://` URLs in inline code are included. Inline code such as `/links`, `/`, or `src/main.py:42` is not treated as a link automatically.
+
+Use `--paths` to additionally infer paths from inline code. Inferred files and directories must exist. Generic directory notation such as `/`, `./`, `../`, `~/`, and drive roots is excluded from inference; explicit links such as `[root](/)` still work. Path inference remains a heuristic, so enable it when you want file mentions as well as links.
+
+Examples:
 
 ```markdown
 [Report](reports/result.html)
@@ -31,8 +39,11 @@ Supports inline and reference-style Markdown links, images, web autolinks, bare 
 [Source](src/main.py:42:3)
 [Source anchor](src/main.py#L42-L50)
 [Web](https://example.com/docs)
-`src/main.py:42`
+`https://example.com/docs`
+`file:///home/adam/report.html`
 ```
+
+With `--paths`, existing inline paths such as `src/main.py:42` are also included.
 
 Relative paths resolve against the Pi working directory. Percent-encoded file paths are decoded; use `%23`, `%3F`, and `%25` for literal `#`, `?`, and `%` in Markdown destinations. File suffixes such as `report.html#chart` and `report.html?view=wide` are preserved. Line ranges open at their first line.
 

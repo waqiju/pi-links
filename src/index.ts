@@ -4,11 +4,22 @@ import { isWSL, openTarget } from "./open.js";
 
 export default function linksExtension(pi: ExtensionAPI) {
   pi.registerCommand("links", {
-    description: "Pick and open conversation links: /links [filter], /links --last [filter]",
+    description: "Pick and open conversation links: /links [--last] [--paths] [filter]",
     handler: async (args, ctx) => {
       if (!ctx.hasUI) return;
-      const last = /^--last(?:\s|$)/.test(args.trim());
-      const filter = (last ? args.trim().replace(/^--last\s*/, "") : args.trim()).toLowerCase();
+      let remaining = args.trim();
+      let last = false;
+      let includePaths = false;
+      // Flags precede the filter and may appear in either order. -- ends flag parsing.
+      while (remaining) {
+        const match = remaining.match(/^(--last|--paths|--)(?:\s+|$)/);
+        if (!match) break;
+        remaining = remaining.slice(match[0].length);
+        if (match[1] === "--") break;
+        if (match[1] === "--last") last = true;
+        if (match[1] === "--paths") includePaths = true;
+      }
+      const filter = remaining.toLowerCase();
       const texts: string[] = [];
       for (const entry of [...ctx.sessionManager.getBranch()].reverse()) {
         if (entry.type !== "message" || entry.message.role !== "assistant") continue;
@@ -17,7 +28,7 @@ export default function linksExtension(pi: ExtensionAPI) {
         texts.push(text);
         if (last) break;
       }
-      const candidates = collectLinks(texts, ctx.cwd, process.platform, isWSL())
+      const candidates = collectLinks(texts, ctx.cwd, process.platform, isWSL(), includePaths)
         .filter((link) => `${link.label} ${link.href}`.toLowerCase().includes(filter));
       const links = await filterInferredPaths(candidates);
       if (!links.length) {

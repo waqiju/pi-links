@@ -8,8 +8,8 @@ export interface Link { label: string; href: string; inferred?: boolean }
 export type Target = { kind: "url"; url: string } | { kind: "file"; path: string; suffix: string; line?: number; column?: number };
 
 // Only explicit Markdown links, autolinks, bare web URLs and inline-code paths.
-// Fenced code and HTML are deliberately not interpreted as links.
-export function extractLinks(text: string): Link[] {
+// Fenced code and HTML are deliberately not interpreted as links. Path guessing is opt-in.
+export function extractLinks(text: string, includePaths = false): Link[] {
   const links: Link[] = [];
   const labelTokens = new WeakSet<object>();
   marked.walkTokens(marked.lexer(text), (token) => {
@@ -17,11 +17,22 @@ export function extractLinks(text: string): Link[] {
     if (token.type === "link" || token.type === "image") {
       links.push({ label: token.text, href: token.href });
       if (token.tokens) marked.walkTokens(token.tokens, child => { labelTokens.add(child); });
-    } else if (token.type === "codespan" && /^(?:https?:\/\/|file:\/\/|[A-Za-z]:[\\/]|\.{0,2}\/|~\/)|^[^\s]+\.[a-zA-Z0-9]{1,10}(?::\d+(?::\d+)?)?$/.test(token.text)) {
-      links.push({ label: token.text, href: token.text, inferred: true });
+    } else if (token.type === "codespan") {
+      if (/^(?:https?|file):\/\//i.test(token.text)) {
+        links.push({ label: token.text, href: token.text });
+      } else if (includePaths && isPathCandidate(token.text)) {
+        links.push({ label: token.text, href: token.text, inferred: true });
+      }
     }
   });
   return links;
+}
+
+function isPathCandidate(text: string): boolean {
+  // Generic directory notation does not identify a useful inferred destination.
+  const base = text.split(/[?#]/)[0].replace(/:\d+(?::\d+)?$/, "").replace(/^[A-Za-z]:/, "");
+  if (!base.split(/[\\/]/).some(part => !["", ".", "..", "~"].includes(part))) return false;
+  return /^(?:[A-Za-z]:[\\/]|\.{0,2}\/|~\/)|^[^\s]+\.[a-zA-Z0-9]{1,10}(?::\d+(?::\d+)?)?$/.test(text);
 }
 
 export function resolveTarget(href: string, cwd: string, platform = process.platform, wsl = false): Target | undefined {
@@ -70,11 +81,11 @@ export function plainLabel(text: string): string {
 }
 
 export interface Candidate extends Link { target: Target }
-export function collectLinks(textsNewestFirst: string[], cwd: string, platform = process.platform, wsl = false): Candidate[] {
+export function collectLinks(textsNewestFirst: string[], cwd: string, platform = process.platform, wsl = false, includePaths = false): Candidate[] {
   const seen = new Map<string, Candidate>();
   const results: Candidate[] = [];
   for (const text of textsNewestFirst) {
-    for (const link of extractLinks(text)) {
+    for (const link of extractLinks(text, includePaths)) {
       const target = resolveTarget(link.href, cwd, platform, wsl);
       if (!target) continue;
       const key = targetKey(target);

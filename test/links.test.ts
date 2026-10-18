@@ -7,9 +7,20 @@ import { collectLinks, extractLinks, filterInferredPaths, plainLabel, resolveTar
 import { openTarget, powershellArgs } from "../src/open.js";
 
 test("Markdown titles, references, nested parentheses, Unicode, autolinks and inline paths", () => {
-  const links = extractLinks('[报告](<reports/中文 report.html>) [ref][r] [nested](a(b).pdf)\n\n[r]: https://example.com/docs\n\n<https://example.org> `src/main.ts:12:3`\n\n```md\n[ignore](secret.txt)\n```');
+  const links = extractLinks('[报告](<reports/中文 report.html>) [ref][r] [nested](a(b).pdf)\n\n[r]: https://example.com/docs\n\n<https://example.org> `src/main.ts:12:3`\n\n```md\n[ignore](secret.txt)\n```', true);
   assert.deepEqual(links.map(l => l.href), ["reports/中文 report.html", "https://example.com/docs", "a(b).pdf", "https://example.org", "src/main.ts:12:3"]);
   assert.equal(links[0].label, "报告");
+});
+
+test("default extraction retains explicit links and inline URLs, not inline paths", () => {
+  const text = '[root](/) ![image](image.png) `src/app.ts:12` `/` `./` `../` `~/` `https://example.org` `file:///missing.txt`';
+  assert.deepEqual(extractLinks(text).map(link => link.href), ["/", "image.png", "https://example.org", "file:///missing.txt"]);
+  assert.ok(extractLinks(text).every(link => !link.inferred));
+});
+
+test("path inference rejects generic directories but explicit directory links survive", () => {
+  const text = '`/` `//` `./` `../` `~/` `/../` `C:\\` [root](/) [parent](../) `./src`';
+  assert.deepEqual(extractLinks(text, true).map(link => link.href), ["/", "../", "./src"]);
 });
 
 test("inline-code link labels do not create a second destination", () => {
@@ -53,11 +64,11 @@ test("inferred paths must exist; commands disappear but real paths and explicit 
       '`./中文 report.html` `main.ts:12:3` `./directory`',
       '[explicit missing](missing.txt) `https://example.org`',
     ].join("\n");
-    const result = await filterInferredPaths(collectLinks([text], cwd));
+    const result = await filterInferredPaths(collectLinks([text], cwd, process.platform, false, true));
     assert.deepEqual(result.map(link => link.href), [
       "./中文 report.html", "main.ts:12:3", "./directory", "missing.txt", "https://example.org",
     ]);
-    const duplicate = await filterInferredPaths(collectLinks(['`missing.txt`', '[explicit](missing.txt)'], cwd));
+    const duplicate = await filterInferredPaths(collectLinks(['`missing.txt`', '[explicit](missing.txt)'], cwd, process.platform, false, true));
     assert.equal(duplicate.length, 1);
     assert.equal(duplicate[0].inferred, false);
   } finally {
