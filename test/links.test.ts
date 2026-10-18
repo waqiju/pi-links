@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { collectLinks, extractLinks, plainLabel, resolveTarget } from "../src/links.js";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { collectLinks, extractLinks, filterInferredPaths, plainLabel, resolveTarget } from "../src/links.js";
 import { openTarget, powershellArgs } from "../src/open.js";
 
 test("Markdown titles, references, nested parentheses, Unicode, autolinks and inline paths", () => {
@@ -37,6 +40,29 @@ test("reject unsafe schemes, control characters, malformed encodings and anchor-
 test("deduplicate normalized targets and keep newest title", () => {
   const result = collectLinks(["[new](./a.txt) [line](a.txt:2)", "[old](a.txt) [web](https://example.org)"], "/project");
   assert.deepEqual(result.map(l => l.label), ["new", "line", "web"]);
+});
+
+test("inferred paths must exist; commands disappear but real paths and explicit links survive", async () => {
+  const cwd = await mkdtemp(path.join(tmpdir(), "pi-links-"));
+  try {
+    await writeFile(path.join(cwd, "中文 report.html"), "report");
+    await writeFile(path.join(cwd, "main.ts"), "source");
+    await mkdir(path.join(cwd, "directory"));
+    const text = [
+      '`/links` `/links report` `/links --last` `/reload` `example.ts`',
+      '`./中文 report.html` `main.ts:12:3` `./directory`',
+      '[explicit missing](missing.txt) `https://example.org`',
+    ].join("\n");
+    const result = await filterInferredPaths(collectLinks([text], cwd));
+    assert.deepEqual(result.map(link => link.href), [
+      "./中文 report.html", "main.ts:12:3", "./directory", "missing.txt", "https://example.org",
+    ]);
+    const duplicate = await filterInferredPaths(collectLinks(['`missing.txt`', '[explicit](missing.txt)'], cwd));
+    assert.equal(duplicate.length, 1);
+    assert.equal(duplicate[0].inferred, false);
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
 });
 
 test("native Windows resolution", () => {

@@ -36,6 +36,19 @@ test("command scans assistant text on supplied branch, newest first, and cancell
   assert.equal(h.notices.length, 0);
 });
 
+test("screenshot regression: slash commands do not appear in the picker", async () => {
+  const h = harness([message("assistant", [
+    '[waqiju/pi-links](https://github.com/waqiju/pi-links)',
+    '[pi-links](/mnt/d/1_Workspace/pi-links)',
+    '`/links` `/links report` `/links --last` `/reload`',
+    '[中文测试报告](</mnt/d/1_Workspace/pi-links/examples/中文 report.html>)',
+  ].join("\n"))]);
+  await h.run();
+  assert.equal(h.menus[0].length, 3);
+  assert.match(h.menus[0][0], /waqiju\/pi-links/);
+  assert.match(h.menus[0][2], /中文测试报告/);
+});
+
 test("--last and title filtering, empty results, non-UI guard", async () => {
   const branch = [message("assistant", "[old](old.txt)"), message("assistant", "[Report](report.html) [Other](other.txt)")];
   const h = harness(branch);

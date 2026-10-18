@@ -1,9 +1,10 @@
 import { marked } from "marked";
+import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export interface Link { label: string; href: string }
+export interface Link { label: string; href: string; inferred?: boolean }
 export type Target = { kind: "url"; url: string } | { kind: "file"; path: string; suffix: string; line?: number; column?: number };
 
 // Only explicit Markdown links, autolinks, bare web URLs and inline-code paths.
@@ -17,7 +18,7 @@ export function extractLinks(text: string): Link[] {
       links.push({ label: token.text, href: token.href });
       if (token.tokens) marked.walkTokens(token.tokens, child => { labelTokens.add(child); });
     } else if (token.type === "codespan" && /^(?:https?:\/\/|file:\/\/|[A-Za-z]:[\\/]|\.{0,2}\/|~\/)|^[^\s]+\.[a-zA-Z0-9]{1,10}(?::\d+(?::\d+)?)?$/.test(token.text)) {
-      links.push({ label: token.text, href: token.text });
+      links.push({ label: token.text, href: token.text, inferred: true });
     }
   });
   return links;
@@ -70,17 +71,38 @@ export function plainLabel(text: string): string {
 
 export interface Candidate extends Link { target: Target }
 export function collectLinks(textsNewestFirst: string[], cwd: string, platform = process.platform, wsl = false): Candidate[] {
-  const seen = new Set<string>();
+  const seen = new Map<string, Candidate>();
   const results: Candidate[] = [];
   for (const text of textsNewestFirst) {
     for (const link of extractLinks(text)) {
       const target = resolveTarget(link.href, cwd, platform, wsl);
       if (!target) continue;
       const key = targetKey(target);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      results.push({ ...link, target });
+      const existing = seen.get(key);
+      if (existing) {
+        // An explicit reference remains visible even if a newer inferred path is missing.
+        if (!link.inferred) existing.inferred = false;
+        continue;
+      }
+      const candidate = { ...link, target };
+      seen.set(key, candidate);
+      results.push(candidate);
     }
   }
   return results;
+}
+
+// Inline code also contains slash commands, package names and example filenames.
+// Only promote guessed local paths when the filesystem confirms they exist.
+export async function filterInferredPaths(candidates: Candidate[]): Promise<Candidate[]> {
+  const visible = await Promise.all(candidates.map(async (candidate) => {
+    if (!candidate.inferred || candidate.target.kind !== "file") return true;
+    try {
+      await access(candidate.target.path);
+      return true;
+    } catch {
+      return false;
+    }
+  }));
+  return candidates.filter((_, index) => visible[index]);
 }

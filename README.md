@@ -21,7 +21,7 @@ Run `/reload` in an existing Pi session. Requires Node.js 22+ and Pi with the `@
 | `/links --last` | Links from the latest assistant message containing visible text |
 | `/links --last html` | Filter that latest message |
 
-Select with arrow keys and Enter; Escape cancels without opening anything. Items show both the Markdown title and destination. Duplicate resolved destinations keep their newest title. Missing files stay visible and report an error when selected.
+Select with arrow keys and Enter; Escape cancels without opening anything. Items show both the Markdown title and destination. Duplicate resolved destinations keep their newest title. Explicit Markdown links to missing files stay visible and report an error when selected. Paths inferred from inline code are listed only when the file or directory exists, so slash commands such as `/links`, `/links report`, and `/reload` are not mistaken for files.
 
 Supports inline and reference-style Markdown links, images, web autolinks, bare HTTP(S) URLs, and paths in inline code. Examples:
 

@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { collectLinks, plainLabel } from "./links.js";
+import { collectLinks, filterInferredPaths, plainLabel } from "./links.js";
 import { isWSL, openTarget } from "./open.js";
 
 export default function linksExtension(pi: ExtensionAPI) {
@@ -17,8 +17,9 @@ export default function linksExtension(pi: ExtensionAPI) {
         texts.push(text);
         if (last) break;
       }
-      const links = collectLinks(texts, ctx.cwd, process.platform, isWSL())
+      const candidates = collectLinks(texts, ctx.cwd, process.platform, isWSL())
         .filter((link) => `${link.label} ${link.href}`.toLowerCase().includes(filter));
+      const links = await filterInferredPaths(candidates);
       if (!links.length) {
         ctx.ui.notify("No matching links in assistant replies on this branch.", "info");
         return;
