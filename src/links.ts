@@ -19,13 +19,26 @@ export function extractLinks(text: string, includePaths = false): Link[] {
       if (token.tokens) marked.walkTokens(token.tokens, child => { labelTokens.add(child); });
     } else if (token.type === "codespan") {
       if (/^(?:https?|file):\/\//i.test(token.text)) {
-        links.push({ label: token.text, href: token.text });
+        if (isUsefulInlineUrl(token.text)) links.push({ label: token.text, href: token.text });
       } else if (includePaths && isPathCandidate(token.text)) {
         links.push({ label: token.text, href: token.text, inferred: true });
       }
     }
   });
   return links;
+}
+
+function isUsefulInlineUrl(text: string): boolean {
+  try {
+    const url = new URL(text);
+    if (url.protocol !== "file:") return true;
+    // In prose, root file URIs usually illustrate the scheme, not a destination.
+    // URL normalization also collapses dot segments; decode before checking drive roots.
+    const pathname = decodeURIComponent(url.pathname).replaceAll("\\", "/");
+    return pathname.split("/").some(part => part !== "" && !/^[a-z]:$/i.test(part));
+  } catch {
+    return false;
+  }
 }
 
 function isPathCandidate(text: string): boolean {

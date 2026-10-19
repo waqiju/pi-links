@@ -52,6 +52,24 @@ test("file protocol mentions are not silently normalized into root-directory lin
   }
 });
 
+test("conversation regression: explanatory inline root URIs never become picker items", () => {
+  const explanations = [
+    '默认保留 `file://` URL；真正的根目录 `file:///` 仍有效。',
+    '`file://localhost` `file://localhost/` `FILE:///` `file:///?q=1#root`',
+    '`file:///C:/` `file:///C%3A/` `file:///tmp/../` `file:////`',
+    '[Report](file:///tmp/report.html) `file:///tmp/中文%20report.html`',
+  ];
+  for (const includePaths of [false, true]) {
+    const links = collectLinks(explanations, "/project", "linux", true, includePaths);
+    assert.deepEqual(links.map(link => link.href), [
+      "file:///tmp/report.html", "file:///tmp/中文%20report.html",
+    ]);
+    // Explicit Markdown links express intent, unlike inline-code examples.
+    const explicit = collectLinks(['[root](file:///) [drive](file:///C:/)'], "/project", "linux", true, includePaths);
+    assert.deepEqual(explicit.map(link => link.label), ["root", "drive"]);
+  }
+});
+
 test("line and column, GitHub line anchors, fragments and URL ports", () => {
   assert.deepEqual(resolveTarget("src/app.py:12:3", "/project"), { kind: "file", path: "/project/src/app.py", suffix: "", line: 12, column: 3 });
   assert.deepEqual(resolveTarget("src/app.py#L12-L15", "/project"), { kind: "file", path: "/project/src/app.py", suffix: "", line: 12, column: undefined });
