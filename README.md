@@ -64,7 +64,7 @@ WSL needs Windows interop enabled and `powershell.exe` / `wslpath` available in 
 
 For line-number links, install VS Code's WSL launcher so `code` is in PATH. Alternatively set `PI_LINKS_EDITOR` to a **single executable path** that accepts VS Code's `--goto` argument, such as `codium`. It is not a shell command and does not accept embedded options. Without a working editor, line-number links show an actionable error; ordinary reports still open normally.
 
-Only HTTP(S) and local files are supported; arbitrary URI schemes and remote-host `file://` links are ignored. Local `file://localhost/...` works. Directory/file associations, HTML local-resource restrictions and browser rendering are controlled by the OS/browser. This extension does not start an HTTP server. Non-UI modes do not launch applications. RPC clients may expose the built-in selection dialog, but files always open on the Pi host.
+Only HTTP(S) and local files are supported; arbitrary URI schemes and remote-host `file://` links are ignored. Local `file://localhost/...` works. Protocol-only mentions such as `file://` or `file://localhost` are ignored rather than implicitly converted to the root directory; an explicit root URI `file:///` remains valid. Directory/file associations, HTML local-resource restrictions and browser rendering are controlled by the OS/browser. This extension does not start an HTTP server. Non-UI modes do not launch applications. RPC clients may expose the built-in selection dialog, but files always open on the Pi host.
 
 ## Development
 

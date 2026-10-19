@@ -55,6 +55,9 @@ export function resolveTarget(href: string, cwd: string, platform = process.plat
   if (suffixIndex >= 0) { suffix = raw.slice(suffixIndex); raw = raw.slice(0, suffixIndex); }
   try {
     if (/^file:\/\//i.test(raw)) {
+      // WHATWG URL repairs bare "file://" and "file://localhost" into file:///.
+      // Require an explicit path slash in the original local URI before normalization.
+      if (!/^file:\/\/(?:localhost)?\//i.test(raw)) return;
       const url = new URL(raw);
       if (url.hostname && url.hostname !== "localhost") return; // UNC hosts are not guessed.
       raw = platform === "win32" ? fileURLToPath(url, { windows: true }) : fileURLToPath(url);

@@ -34,6 +34,24 @@ test("relative, encoded, Windows and file URI paths in WSL", () => {
   assert.equal(resolveTarget("file:///home/adam/report.html", "/tmp", "linux", true)?.kind, "file");
 });
 
+test("file protocol mentions are not silently normalized into root-directory links", () => {
+  for (const href of ["file://", "FILE://", "file://?view=wide", "file://#chart", "file://localhost", "file://localhost#chart", "file://:12"]) {
+    for (const platform of ["linux", "darwin", "win32"] as const) {
+      assert.equal(resolveTarget(href, "/project", platform), undefined, `${platform}: ${href}`);
+    }
+  }
+  const text = '支持 HTTP(S) 和 `file://`。 [protocol](file://) <file://> `https://` `http://` [report](file:///tmp/report.html)';
+  for (const paths of [false, true]) {
+    assert.deepEqual(collectLinks([text], "/project", "linux", false, paths).map(link => link.href), ["file:///tmp/report.html"]);
+  }
+  // Explicit root URIs contain a path slash and remain valid.
+  for (const href of ["file:///", "file://localhost/"]) {
+    assert.deepEqual(resolveTarget(href, "/project", "linux"), {
+      kind: "file", path: "/", suffix: "", line: undefined, column: undefined,
+    });
+  }
+});
+
 test("line and column, GitHub line anchors, fragments and URL ports", () => {
   assert.deepEqual(resolveTarget("src/app.py:12:3", "/project"), { kind: "file", path: "/project/src/app.py", suffix: "", line: 12, column: 3 });
   assert.deepEqual(resolveTarget("src/app.py#L12-L15", "/project"), { kind: "file", path: "/project/src/app.py", suffix: "", line: 12, column: undefined });
