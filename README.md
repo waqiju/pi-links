@@ -7,10 +7,10 @@ Pick and open links from your Pi conversations.
 ## Install
 
 ```sh
-pi install git:github.com/waqiju/pi-links
+pi install npm:pi-links
 ```
 
-Run `/reload` in an existing Pi session. Requires Node.js 22+ and Pi with the `@earendil-works/pi-coding-agent` extension API. The npm package name in the manifest is for future publication; install from Git today.
+Run `/reload` in an existing Pi session. Requires Node.js 22+ and Pi with the `@earendil-works/pi-coding-agent` extension API. Alternatively, install from Git with `pi install git:github.com/waqiju/pi-links`. If migrating from Git to npm, remove the old source first to avoid loading the extension twice.
 
 ## Usage
 
@@ -80,5 +80,9 @@ Tests cover Markdown extraction, path normalization, WSL conversion, command quo
 - `src/links.ts`: extraction, normalization, deduplication
 - `src/open.ts`: platform launchers; argv-based execution and quoted, encoded PowerShell literals
 - `src/index.ts`: branch traversal, filtering and Pi selection UI
+
+## Publishing
+
+Releases use GitHub Actions and npm Trusted Publishing (OIDC), without an npm token or per-release phone verification. See [the release guide](docs/releasing.md) for the one-time npm setup and release commands.
 
 MIT licensed.

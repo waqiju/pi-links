@@ -1,0 +1,54 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'waqiju/pi-links'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Ensure OIDC-capable npm
+        run: npm install --global npm@11 --registry=https://registry.npmjs.org
+      - name: Validate release version
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          assert.equal(pkg.name, 'pi-links');
+          assert.match(pkg.version, /^\d+\.\d+\.\d+$/, 'Only stable releases may publish as latest');
+          assert.equal(process.env.GITHUB_REF_NAME, `v${pkg.version}`, 'Tag must match package version');
+          assert.equal(lock.name, pkg.name);
+          assert.equal(lock.version, pkg.version);
+          assert.equal(lock.packages[''].name, pkg.name);
+          assert.equal(lock.packages[''].version, pkg.version);
+          JS
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm pack --dry-run
+      - name: Publish with npm Trusted Publishing (OIDC)
+        run: npm publish --access public --provenance --registry=https://registry.npmjs.org
